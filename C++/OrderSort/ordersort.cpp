@@ -760,7 +760,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                             {
                                 if(PourCost[frontp][j].ProcessType == 2)
                                 {//2:灌装
-                                    int mLen = PourCost[frontp][j].Materiel.length(); 
+                                    int mLen = PourCost[frontp][j].Materiel.length();
                                     costtime34 += PourCost[frontp][j].MRestTime * mLen;
                                     costtime34 += PourCost[frontp][j].TRestTime;// * mLen;
                                 }
@@ -1054,7 +1054,43 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                 neworder.BagRestTime = tstr2;
                                 neworder.PourRestTime = "";
                                 neworder.EndTime = tstr3;
-                                outputorder.append(neworder);
+
+
+                                //合并连续的相同制令单
+                                bool act_equal = false;
+                                if(outputorder.length() > 0)
+                                {
+                                    if(outputorder.last().OrderType == neworder.OrderType)
+                                    {
+                                        if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                                        {
+                                            act_equal = true;
+                                            int newlen = neworder.ProductIndex.length();
+                                            for(int xlen = 0;xlen < newlen;xlen++)
+                                            {
+                                                if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                                {
+                                                    act_equal = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if(!act_equal)
+                                {
+                                    outputorder.append(neworder);
+                                }
+                                else
+                                {
+                                    int newlen = outputorder.last().ProductNum.length();
+                                    for(int xlen = 0;xlen < newlen;xlen++)
+                                    {
+                                        outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                                    }
+                                    outputorder.last().EndTime = neworder.EndTime;
+                                }
+
+
                                 //
                                 orderBagStart += testcosttime56 * 60 + next_order_num * bagtime;
                                 order56[i].ProductNum[p] -= next_order_num;
@@ -1168,7 +1204,43 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     neworder.PourRestTime = "";
                     neworder.EndTime = tstr3;
                     neworder.DependIndex = "";
-                    outputorder.append(neworder);
+
+
+                    //合并连续的相同制令单
+                    bool act_equal = false;
+                    if(outputorder.length() > 0)
+                    {
+                        if(outputorder.last().OrderType == neworder.OrderType)
+                        {
+                            if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                            {
+                                act_equal = true;
+                                int newlen = neworder.ProductIndex.length();
+                                for(int xlen = 0;xlen < newlen;xlen++)
+                                {
+                                    if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                    {
+                                        act_equal = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(!act_equal)
+                    {
+                        outputorder.append(neworder);
+                    }
+                    else
+                    {
+                        int newlen = outputorder.last().ProductNum.length();
+                        for(int xlen = 0;xlen < newlen;xlen++)
+                        {
+                            outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                        }
+                        outputorder.last().EndTime = neworder.EndTime;
+                    }
+
+
                     //
                     QString frontp = order56[max_i].DependProductIndex;
                     if(max_pournum > 0)
@@ -1198,7 +1270,41 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                         neworder.PourRestTime = nstr2;
                         neworder.EndTime = nstr3;
                         neworder.DependIndex = QString("%1").arg(Index - 1);
-                        outputorder.append(neworder);
+
+
+                        //合并连续的相同制令单
+                        bool act_equal = false;
+                        if(outputorder.length() > 0)
+                        {
+                            if(outputorder.last().OrderType == neworder.OrderType)
+                            {
+                                if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                                {
+                                    act_equal = true;
+                                    int newlen = neworder.ProductIndex.length();
+                                    for(int xlen = 0;xlen < newlen;xlen++)
+                                    {
+                                        if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                        {
+                                            act_equal = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if(!act_equal)
+                        {
+                            outputorder.append(neworder);
+                        }
+                        else
+                        {
+                            int newlen = outputorder.last().ProductNum.length();
+                            for(int xlen = 0;xlen < newlen;xlen++)
+                            {
+                                outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                            }
+                            outputorder.last().EndTime = neworder.EndTime;
+                        }
                     }
                     order56[max_i].ProductNum[p] -= max_ordernum;
                     order34[frontp].ProductNum -= max_pournum;
@@ -1302,10 +1408,10 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                 if(thisset.contains(product))
                                 {
                                     thiscount[product] += min_num * CountList[j].ProductMap[product];
+                                    total += min_num * CountList[j].ProductMap[product];//22.8.8  更新（漏记单个齐套）
                                     continue;
                                 }
                                 New_product[product] -= min_num * CountList[j].ProductMap[product];
-                                total += min_num * CountList[j].ProductMap[product];
                             }
                         }
                     }
@@ -1705,7 +1811,41 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                             neworder.PourRestTime = tstr4;
                             neworder.EndTime = tstr5;
                             neworder.DependIndex = "";
-                            outputorder.append(neworder);
+
+                            //合并连续的相同制令单
+                            bool act_equal = false;
+                            if(outputorder.length() > 0)
+                            {
+                                if(outputorder.last().OrderType == neworder.OrderType)
+                                {
+                                    if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                                    {
+                                        act_equal = true;
+                                        int newlen = neworder.ProductIndex.length();
+                                        for(int xlen = 0;xlen < newlen;xlen++)
+                                        {
+                                            if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                            {
+                                                act_equal = false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if(!act_equal)
+                            {
+                                outputorder.append(neworder);
+                            }
+                            else
+                            {
+                                int newlen = outputorder.last().ProductNum.length();
+                                for(int xlen = 0;xlen < newlen;xlen++)
+                                {
+                                    outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                                }
+                                outputorder.last().EndTime = neworder.EndTime;
+                            }
+
                             //
                             orderBagStart = tempbagtimealpha;
                             orderPourStart = orderBagStart;
@@ -1884,16 +2024,13 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     neworder.Index = QString("%1").arg(Index);
                     neworder.OrderType = order7[max_i].OrderType;
                     QList<QString> productindex;
+                    QList<int> productnum;
                     foreach(QString product,order7[max_i].ProductNum.keys())
                     {
                         productindex.append(product);
+                        productnum.append(next_count[product]);//22.8.8 更新
                     }
                     neworder.ProductIndex = productindex;
-                    QList<int> productnum;
-                    foreach(int tempnum,order7[max_i].ProductNum.values())
-                    {
-                        productnum.append(tempnum);
-                    }
                     neworder.ProductNum = productnum;
                     QList<QString> workorder;
                     neworder.WorkOrder = workorder;
@@ -1903,7 +2040,43 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     neworder.PourRestTime = tstr4;
                     neworder.EndTime = tstr5;
                     neworder.DependIndex = "";
-                    outputorder.append(neworder);
+
+
+                    //合并连续的相同制令单
+                    bool act_equal = false;
+                    if(outputorder.length() > 0)
+                    {
+                        if(outputorder.last().OrderType == neworder.OrderType)
+                        {
+                            if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                            {
+                                act_equal = true;
+                                int newlen = neworder.ProductIndex.length();
+                                for(int xlen = 0;xlen < newlen;xlen++)
+                                {
+                                    if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                    {
+                                        act_equal = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(!act_equal)
+                    {
+                        outputorder.append(neworder);
+                    }
+                    else
+                    {
+                        int newlen = outputorder.last().ProductNum.length();
+                        for(int xlen = 0;xlen < newlen;xlen++)
+                        {
+                            outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                        }
+                        outputorder.last().EndTime = neworder.EndTime;
+                    }
+
+
                     //
                     orderBagStart = tempbagtimealpha;
                     orderPourStart = orderBagStart;
