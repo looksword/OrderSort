@@ -1105,7 +1105,107 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     }
                     else
                     {
-                        First56 = false;
+                        if(sum7 == 0)
+                        {//无灌包单,需等灌装再包装
+                            int new_pournum = 0;
+                            QString product = "";
+                            foreach(QString temp_pourproduct, order34.keys())
+                            {
+                                if(order34[temp_pourproduct].ProductNum > new_pournum)
+                                {
+                                    new_pournum = order34[product].ProductNum;
+                                    product = temp_pourproduct;
+                                }
+                            }
+
+                            int costtime34 = 0;
+                            if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
+                            {
+                                for(int j = 0; j < PourCost[product].length();j++)
+                                {
+                                    if(PourCost[product][j].ProcessType == 2)
+                                    {//2:灌装
+                                        int mLen = PourCost[product][j].Materiel.length();
+                                        costtime34 += PourCost[product][j].MRestTime * mLen;
+                                        costtime34 += PourCost[product][j].TRestTime;// * mLen;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                                for(int j = 0; j < PourCost[LastPourOrder].length();j++)
+                                {
+                                    lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
+                                }
+                                for(int j = 0; j < PourCost[product].length();j++)
+                                {
+                                    if(PourCost[product][j].ProcessType == 3)
+                                    {//3:包装
+                                        if(!lastStepset.contains(PourCost[product][j].ProcessStep))
+                                        {
+                                            int mLen = PourCost[product][j].Materiel.length();
+                                            costtime34 += PourCost[product][j].MRestTime * mLen;
+                                            costtime34 += PourCost[product][j].TRestTime;// * mLen;
+                                        }
+                                        else
+                                        {
+                                            QSet<QString> lastmaterielset;//上一工艺所需物料
+                                            for(int k = 0; k < lastStepset[LastPourOrder].length();k++)
+                                            {
+                                                lastmaterielset << lastStepset[LastPourOrder][k];
+                                            }
+                                            for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
+                                            {
+                                                int mLen = 0;
+                                                if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
+                                                {
+                                                    mLen ++;
+                                                }
+                                                costtime34 += PourCost[product][j].MRestTime * mLen;
+                                                costtime34 += PourCost[product][j].TRestTime;// * mLen;
+                                            }
+                                        }
+                                    }
+                                }
+                                lastStepset.clear();
+                            }
+
+                            Index++;
+                            //记录 order4
+                            //
+                            QString nstr1 = QString("%1").arg(orderPourStart + costtime34 * 60);
+                            QString nstr2 = QString("%1").arg(costtime34);
+                            QString nstr3 = QString("%1").arg(orderPourStart + costtime34 * 60 + new_pournum * pourtime);
+                            //
+                            OutputOrder neworder;
+                            neworder.Index = QString("%1").arg(Index);
+                            neworder.OrderType = order34[product].OrderType;
+                            QList<QString> productindex;
+                            productindex.append(product);
+                            neworder.ProductIndex = productindex;
+                            QList<int> productnum;
+                            productnum.append(new_pournum);
+                            neworder.ProductNum = productnum;
+                            QList<QString> workorder;
+                            neworder.WorkOrder = workorder;
+                            neworder.BagStartTime = "";
+                            neworder.PourStartTime = nstr1;
+                            neworder.BagRestTime = "";
+                            neworder.PourRestTime = nstr2;
+                            neworder.EndTime = nstr3;
+                            neworder.DependIndex = "";
+                            outputorder.append(neworder);
+                            orderPourStart += new_pournum * pourtime + costtime34 * 60;
+                            LastPourOrder = product;
+
+                            StockMap[product] += new_pournum;
+                            order34[product].ProductNum -= new_pournum;
+                        }
+                        else
+                        {
+                            First56 = false;
+                        }
                     }
                 }
                 else
@@ -2103,7 +2203,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                 BagCost.clear();
                 PourCost.clear();
                 SalesIndexs.clear();
-                return 0;
+                return 9;
             }
         }
         //printf("finished Order\n");
@@ -2203,6 +2303,9 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
             outputorder.append(neworder);
             orderPourStart += new_pournum * pourtime + costtime34 * 60;
             LastPourOrder = product;
+
+            StockMap[product] += new_pournum;
+            order34[product].ProductNum -= new_pournum;
         }
         for(int i = 0;i < outputorder.count();i++)
         {
