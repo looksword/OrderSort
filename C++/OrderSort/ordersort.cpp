@@ -1523,7 +1523,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                         {
                             permitnum += In_Product[product];
                         }
-                        int test_next_order_num = allsetnum - permitnum - total;
+                        int test_next_order_num = allsetnum - permitnum + total;
                         int costtime56 = 0;
                         int costtime7 = 0;
                         int localpourstart = orderBagStart;
