@@ -380,7 +380,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
             {
                 EqualSalesOrder = true;//销售订单编号相同
             }
-            bool HaveEqual = true;
+//            bool HaveEqual = true;
             QMap<QString,int> newProductMap;
             foreach(QString index, sorder.ProductIndex)
             {
@@ -393,44 +393,44 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     newProductMap.insert(index,1);
                 }
             }
-            for(int i = 0;i < CountList.length();i++)
-            {
-                foreach(QString oldpro,CountList[i].ProductMap.keys())
-                {
-                    if(!newProductMap.contains(oldpro))
-                    {
-                        HaveEqual = false;
-                        break;
-                    }
-                    if(newProductMap[oldpro] != CountList[i].ProductMap[oldpro])
-                    {
-                        HaveEqual = false;
-                        break;
-                    }
-                }
-                if(HaveEqual)
-                {
-                    foreach(QString newpro,newProductMap.keys())
-                    {
-                        if(!CountList[i].ProductMap.contains(newpro))
-                        {
-                            HaveEqual = false;
-                            break;
-                        }
-                        if(CountList[i].ProductMap[newpro] != CountList[i].ProductMap[newpro])
-                        {
-                            HaveEqual = false;
-                            break;
-                        }
-                    }
-                    if(HaveEqual)
-                    {
-                        CountList[i].OrderNum++;
-                        CountList[i].SalesIndex.append(sorder.SalesIndex);
-                    }
-                }
-            }
-            if(!HaveEqual || CountList.length() == 0)
+//            for(int i = 0;i < CountList.length();i++)
+//            {
+//                foreach(QString oldpro,CountList[i].ProductMap.keys())
+//                {
+//                    if(!newProductMap.contains(oldpro))
+//                    {
+//                        HaveEqual = false;
+//                        break;
+//                    }
+//                    if(newProductMap[oldpro] != CountList[i].ProductMap[oldpro])
+//                    {
+//                        HaveEqual = false;
+//                        break;
+//                    }
+//                }
+//                if(HaveEqual)
+//                {
+//                    foreach(QString newpro,newProductMap.keys())
+//                    {
+//                        if(!CountList[i].ProductMap.contains(newpro))
+//                        {
+//                            HaveEqual = false;
+//                            break;
+//                        }
+//                        if(CountList[i].ProductMap[newpro] != CountList[i].ProductMap[newpro])
+//                        {
+//                            HaveEqual = false;
+//                            break;
+//                        }
+//                    }
+//                    if(HaveEqual)
+//                    {
+//                        CountList[i].OrderNum++;
+//                        CountList[i].SalesIndex.append(sorder.SalesIndex);
+//                    }
+//                }
+//            }
+//            if(!HaveEqual || CountList.length() == 0)
             {
                 CountOrder product;
                 product.ProductMap = newProductMap;
@@ -2300,7 +2300,42 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
             neworder.PourRestTime = nstr2;
             neworder.EndTime = nstr3;
             neworder.DependIndex = "";
-            outputorder.append(neworder);
+            //outputorder.append(neworder);
+
+            //合并连续的相同制令单
+            bool act_equal = false;
+            if(outputorder.length() > 0)
+            {
+                if(outputorder.last().OrderType == neworder.OrderType)
+                {
+                    if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                    {
+                        act_equal = true;
+                        int newlen = neworder.ProductIndex.length();
+                        for(int xlen = 0;xlen < newlen;xlen++)
+                        {
+                            if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                            {
+                                act_equal = false;
+                            }
+                        }
+                    }
+                }
+            }
+            if(!act_equal)
+            {
+                outputorder.append(neworder);
+            }
+            else
+            {
+                int newlen = outputorder.last().ProductNum.length();
+                for(int xlen = 0;xlen < newlen;xlen++)
+                {
+                    outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                }
+                outputorder.last().EndTime = neworder.EndTime;
+            }
+
             orderPourStart += new_pournum * pourtime + costtime34 * 60;
             LastPourOrder = product;
 
