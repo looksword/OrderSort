@@ -357,8 +357,8 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
         //QString testalpha = "A";
         //QString order2alpha = "U";
         int allsetnum = 400;
-        int bagoncenum = 175;
-        int pouroncenum = 100;
+        int bagoncenum = 175;//包装超参数
+        int pouroncenum = 100;//灌包超参数
         QMap<QString,SalesOrder> SalesMap;//销售订单溯源
         QMap<QString,order_34> order34;
         QList<ProductOrder> order56;
@@ -367,6 +367,8 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
         QMap<QString,int> In_Product;//齐套仓内
         QList<CountOrder> CountList;//相同产品订单
         QList<OutputOrder> outputorder;//结果
+        QList<OutputOrder> tempOutput34;//暂存灌装
+        QList<OutputOrder> tempOutput56;//暂存包装
         QMap<QString,QList<Process>> BagCost;
         QMap<QString,QList<Process>> PourCost;
         bool EqualSalesOrder = false;
@@ -380,7 +382,6 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
             {
                 EqualSalesOrder = true;//销售订单编号相同
             }
-//            bool HaveEqual = true;
             QMap<QString,int> newProductMap;
             foreach(QString index, sorder.ProductIndex)
             {
@@ -393,53 +394,13 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     newProductMap.insert(index,1);
                 }
             }
-//            for(int i = 0;i < CountList.length();i++)
-//            {
-//                foreach(QString oldpro,CountList[i].ProductMap.keys())
-//                {
-//                    if(!newProductMap.contains(oldpro))
-//                    {
-//                        HaveEqual = false;
-//                        break;
-//                    }
-//                    if(newProductMap[oldpro] != CountList[i].ProductMap[oldpro])
-//                    {
-//                        HaveEqual = false;
-//                        break;
-//                    }
-//                }
-//                if(HaveEqual)
-//                {
-//                    foreach(QString newpro,newProductMap.keys())
-//                    {
-//                        if(!CountList[i].ProductMap.contains(newpro))
-//                        {
-//                            HaveEqual = false;
-//                            break;
-//                        }
-//                        if(CountList[i].ProductMap[newpro] != CountList[i].ProductMap[newpro])
-//                        {
-//                            HaveEqual = false;
-//                            break;
-//                        }
-//                    }
-//                    if(HaveEqual)
-//                    {
-//                        CountList[i].OrderNum++;
-//                        CountList[i].SalesIndex.append(sorder.SalesIndex);
-//                    }
-//                }
-//            }
-//            if(!HaveEqual || CountList.length() == 0)
-            {
-                CountOrder product;
-                product.ProductMap = newProductMap;
-                QList<QString> newSalesIndex;
-                newSalesIndex.append(sorder.SalesIndex);
-                product.SalesIndex= newSalesIndex;
-                product.OrderNum = 1;
-                CountList.append(product);
-            }
+            CountOrder product;
+            product.ProductMap = newProductMap;
+            QList<QString> newSalesIndex;
+            newSalesIndex.append(sorder.SalesIndex);
+            product.SalesIndex= newSalesIndex;
+            product.OrderNum = 1;
+            CountList.append(product);
         }
         if(EqualSalesOrder)
         {
@@ -542,21 +503,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
         }
 
         //
-    //    foreach(SalesOrder salesorder,SalesOrders)
-    //    {
-    //        salesorder.ProductIndex.clear();
-    //        salesorder.WorkOrder.clear();
-    //    }
         SalesOrders.clear();
-    //    foreach(AllOrder allorder,AllOrders)
-    //    {
-    //        allorder.ProductIndex.clear();
-    //        foreach(Process process, allorder.AllProcess)
-    //        {
-    //            process.Materiel.clear();
-    //        }
-    //        allorder.AllProcess.clear();
-    //    }
         AllOrders.clear();
         Stocks.clear();
 
@@ -564,11 +511,15 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
         //bool NotExplode = true;
         QString LastBagOrder = "";
         QString LastPourOrder = "";
-        int Index = 0;
+        QString FixedLastPourOrder = "";
+        int AllIndex = 0;
+        int Index34 = 0;
+        int Index56 = 0;
         int orderBagStart = 0;
         int orderPourStart = 0;
+        int FixedorderPourStart = 0;
         QMap<QString, QList<QString>> SalesIndexs;
-        int Not7Set = 0;
+        //int Not7Set = 0;
         int NoNum = 0;
         while(true)
         {
@@ -589,10 +540,6 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                 {
                     sum7 += order7[i].ProductNum[product];
                 }
-            }
-            if ((sum56 == 0) && (sum7 == 0))
-            {
-                break;
             }
             if (((sum56 != 0) && First56) || sum7 == 0)
             {
@@ -735,106 +682,101 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                     else
                                     {
                                         QSet<QString> lastmaterielset;//上一工艺所需物料
-                                        for(int k = 0; k < lastStepset[LastBagOrder].length();k++)
+                                        for(int k = 0; k < lastStepset[BagCost[p][j].ProcessStep].length();k++)
                                         {
-                                            lastmaterielset << lastStepset[LastBagOrder][k];
+                                            lastmaterielset << lastStepset[BagCost[p][j].ProcessStep][k];
                                         }
+                                        int mLen = 0;
                                         for(int k = 0; k < BagCost[p][j].Materiel.length();k++)
                                         {
-                                            int mLen = 0;
                                             if(!lastmaterielset.contains(BagCost[p][j].Materiel[k]))
                                             {
                                                 mLen ++;
                                             }
-                                            costtime56 += BagCost[p][j].MRestTime * mLen;
-                                            costtime56 += BagCost[p][j].TRestTime;// * mLen;
                                         }
+                                        costtime56 += BagCost[p][j].MRestTime * mLen;
+                                        costtime56 += BagCost[p][j].TRestTime;
                                     }
                                 }
                             }
                             lastStepset.clear();
                         }
-                        if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
+                        if(frontp != "")
                         {
-                            for(int j = 0; j < PourCost[frontp].length();j++)
+                            if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
                             {
-                                if(PourCost[frontp][j].ProcessType == 2)
-                                {//2:灌装
-                                    int mLen = PourCost[frontp][j].Materiel.length();
-                                    costtime34 += PourCost[frontp][j].MRestTime * mLen;
-                                    costtime34 += PourCost[frontp][j].TRestTime;// * mLen;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
-                            for(int j = 0; j < PourCost[LastPourOrder].length();j++)
-                            {
-                                lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
-                            }
-                            for(int j = 0; j < PourCost[frontp].length();j++)
-                            {
-                                if(PourCost[frontp][j].ProcessType == 3)
-                                {//3:包装
-                                    if(!lastStepset.contains(PourCost[frontp][j].ProcessStep))
-                                    {
+                                for(int j = 0; j < PourCost[frontp].length();j++)
+                                {
+                                    if(PourCost[frontp][j].ProcessType == 2)
+                                    {//2:灌装
                                         int mLen = PourCost[frontp][j].Materiel.length();
                                         costtime34 += PourCost[frontp][j].MRestTime * mLen;
                                         costtime34 += PourCost[frontp][j].TRestTime;// * mLen;
                                     }
-                                    else
-                                    {
-                                        QSet<QString> lastmaterielset;//上一工艺所需物料
-                                        for(int k = 0; k < lastStepset[LastPourOrder].length();k++)
+                                }
+                            }
+                            else
+                            {
+                                QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                                for(int j = 0; j < PourCost[LastPourOrder].length();j++)
+                                {
+                                    lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
+                                }
+                                for(int j = 0; j < PourCost[frontp].length();j++)
+                                {
+                                    if(PourCost[frontp][j].ProcessType == 2)
+                                    {//2:灌装
+                                        if(!lastStepset.contains(PourCost[frontp][j].ProcessStep))
                                         {
-                                            lastmaterielset << lastStepset[LastPourOrder][k];
-                                        }
-                                        for(int k = 0; k < PourCost[frontp][j].Materiel.length();k++)
-                                        {
-                                            int mLen = 0;
-                                            if(!lastmaterielset.contains(PourCost[frontp][j].Materiel[k]))
-                                            {
-                                                mLen ++;
-                                            }
+                                            int mLen = PourCost[frontp][j].Materiel.length();
                                             costtime34 += PourCost[frontp][j].MRestTime * mLen;
                                             costtime34 += PourCost[frontp][j].TRestTime;// * mLen;
                                         }
+                                        else
+                                        {
+                                            QSet<QString> lastmaterielset;//上一工艺所需物料
+                                            for(int k = 0; k < lastStepset[PourCost[frontp][j].ProcessStep].length();k++)
+                                            {
+                                                lastmaterielset << lastStepset[PourCost[frontp][j].ProcessStep][k];
+                                            }
+                                            int mLen = 0;
+                                            for(int k = 0; k < PourCost[frontp][j].Materiel.length();k++)
+                                            {
+                                                if(!lastmaterielset.contains(PourCost[frontp][j].Materiel[k]))
+                                                {
+                                                    mLen ++;
+                                                }
+                                            }
+                                            costtime34 += PourCost[frontp][j].MRestTime * mLen;
+                                            if(mLen != 0)
+                                            {
+                                                costtime34 += PourCost[frontp][j].TRestTime;
+                                            }
+                                        }
                                     }
                                 }
+                                lastStepset.clear();
                             }
-                            lastStepset.clear();
                         }
                         if(StockMap.contains(frontp))
                         {
                             if(test_max_order_num > StockMap[frontp])
                             {
-                                if(orderBagStart > orderPourStart + costtime34 * 60)
-                                {
-                                    newpournum = int((orderBagStart - orderPourStart - costtime34 * 60) / pourtime);
-                                    maxpournum = newpournum;
-                                    newpournum = newpournum < order56[i].ProductNum[p] - StockMap[frontp] ? newpournum : order56[i].ProductNum[p] - StockMap[frontp];
-                                    maxpournum = maxpournum < order34[frontp].ProductNum ? maxpournum : order34[frontp].ProductNum;
-                                }
-                                else if((sum7 == 0) || (Not7Set == 1))
-                                {
-                                    int waittime = orderPourStart - orderBagStart;
-                                    if(waittime < 0)
-                                    {
-                                        waittime = 0;
-                                    }
-                                    bagwaittime = costtime34 * 60 + waittime;
-                                    newpournum = test_max_order_num - StockMap[frontp];
-                                    maxpournum = newpournum > order34[frontp].ProductNum ? newpournum : order34[frontp].ProductNum;
-                                }
+                                //加大灌装数量
+                                int waittime = orderPourStart + costtime34 * 60 - orderBagStart;
+                                bagwaittime = waittime > 0 ? waittime : 0;
+                                newpournum = test_max_order_num - StockMap[frontp];
+                                int pouronbagnum = int((orderBagStart/* + costtime56 * 60 + test_max_order_num * bagtime*/ - orderPourStart - costtime34 * 60) / pourtime);
+                                maxpournum = pouronbagnum < order34[frontp].ProductNum ? pouronbagnum : order34[frontp].ProductNum;
+                                maxpournum = newpournum < maxpournum ? maxpournum : newpournum;
                             }
                             else
                             {
-                                if(orderBagStart > orderPourStart + costtime34 * 60)
-                                {
-                                    maxpournum = int((orderBagStart - orderPourStart - costtime34 * 60) / pourtime);
-                                    maxpournum = maxpournum < order34[frontp].ProductNum ? maxpournum : order34[frontp].ProductNum;
-                                }
+                                //加大灌装数量
+                                int waittime = orderPourStart + costtime34 * 60 - orderBagStart;
+                                bagwaittime = waittime > 0 ? waittime : 0;
+                                maxpournum = int((orderBagStart/* + costtime56 * 60 + test_max_order_num * bagtime*/ - orderPourStart - costtime34 * 60) / pourtime);
+                                maxpournum = maxpournum < order34[frontp].ProductNum ? maxpournum : order34[frontp].ProductNum;
                             }
                             test_max_order_num = test_max_order_num < StockMap[frontp] + newpournum ? test_max_order_num : StockMap[frontp] + newpournum;
                         }
@@ -957,7 +899,10 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                                         mLen ++;
                                                     }
                                                     testcosttime56 += BagCost[p][j].MRestTime * mLen;
-                                                    testcosttime56 += BagCost[p][j].TRestTime;// * mLen;
+                                                    if(mLen != 0)
+                                                    {
+                                                        testcosttime56 += BagCost[p][j].TRestTime;
+                                                    }
                                                 }
                                             }
                                         }
@@ -1028,18 +973,19 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                 }
                                 //printf("order:%s\n",p.toLatin1().data());
                                 //printf("num:%d\n",next_order_num);
-                                Index++;
+                                //Index++;
+                                Index56++;
                                 //记录 order56 1
                                 //
                                 //int sec1 = orderBagStart + testcosttime56 * 60;
                                 //int sec2 = testcosttime56 * 60;
                                 //int sec3 = orderBagStart + testcosttime56 * 60 + next_order_num * bagtime;
-                                QString tstr1 = QString("%1").arg(orderBagStart + testcosttime56 * 60);
+                                QString tstr1 = QString("%1").arg(orderBagStart);// + testcosttime56 * 60);
                                 QString tstr2 = QString("%1").arg(testcosttime56);// * 60);
                                 QString tstr3 = QString("%1").arg(orderBagStart + testcosttime56 * 60 + next_order_num * bagtime);
                                 //
                                 OutputOrder neworder;
-                                neworder.Index = QString("%1").arg(Index);
+                                neworder.Index = QString("%1").arg(Index56);
                                 neworder.OrderType = order56[i].OrderType;
                                 QList<QString> productindex;
                                 productindex.append(p);
@@ -1056,40 +1002,41 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                 neworder.EndTime = tstr3;
 
 
-                                //合并连续的相同制令单
-                                bool act_equal = false;
-                                if(outputorder.length() > 0)
-                                {
-                                    if(outputorder.last().OrderType == neworder.OrderType)
-                                    {
-                                        if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
-                                        {
-                                            act_equal = true;
-                                            int newlen = neworder.ProductIndex.length();
-                                            for(int xlen = 0;xlen < newlen;xlen++)
-                                            {
-                                                if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
-                                                {
-                                                    act_equal = false;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                if(!act_equal)
-                                {
-                                    outputorder.append(neworder);
-                                }
-                                else
-                                {
-                                    int newlen = outputorder.last().ProductNum.length();
-                                    for(int xlen = 0;xlen < newlen;xlen++)
-                                    {
-                                        outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
-                                    }
-                                    outputorder.last().EndTime = neworder.EndTime;
-                                }
+//                                //合并连续的相同制令单
+//                                bool act_equal = false;
+//                                if(outputorder.length() > 0)
+//                                {
+//                                    if(outputorder.last().OrderType == neworder.OrderType)
+//                                    {
+//                                        if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+//                                        {
+//                                            act_equal = true;
+//                                            int newlen = neworder.ProductIndex.length();
+//                                            for(int xlen = 0;xlen < newlen;xlen++)
+//                                            {
+//                                                if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+//                                                {
+//                                                    act_equal = false;
+//                                                }
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                                if(!act_equal)
+//                                {
+//                                    outputorder.append(neworder);
+//                                }
+//                                else
+//                                {
+//                                    int newlen = outputorder.last().ProductNum.length();
+//                                    for(int xlen = 0;xlen < newlen;xlen++)
+//                                    {
+//                                        outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+//                                    }
+//                                    outputorder.last().EndTime = neworder.EndTime;
+//                                }
 
+                                tempOutput56.append(neworder);
 
                                 //
                                 orderBagStart += testcosttime56 * 60 + next_order_num * bagtime;
@@ -1117,90 +1064,97 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                     product = temp_pourproduct;
                                 }
                             }
-
-                            int costtime34 = 0;
-                            if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
+                            if(new_pournum  > 0)
                             {
-                                for(int j = 0; j < PourCost[product].length();j++)
+                                int costtime34 = 0;
+                                if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
                                 {
-                                    if(PourCost[product][j].ProcessType == 2)
-                                    {//2:灌装
-                                        int mLen = PourCost[product][j].Materiel.length();
-                                        costtime34 += PourCost[product][j].MRestTime * mLen;
-                                        costtime34 += PourCost[product][j].TRestTime;// * mLen;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
-                                for(int j = 0; j < PourCost[LastPourOrder].length();j++)
-                                {
-                                    lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
-                                }
-                                for(int j = 0; j < PourCost[product].length();j++)
-                                {
-                                    if(PourCost[product][j].ProcessType == 3)
-                                    {//3:包装
-                                        if(!lastStepset.contains(PourCost[product][j].ProcessStep))
-                                        {
+                                    for(int j = 0; j < PourCost[product].length();j++)
+                                    {
+                                        if(PourCost[product][j].ProcessType == 2)
+                                        {//2:灌装
                                             int mLen = PourCost[product][j].Materiel.length();
                                             costtime34 += PourCost[product][j].MRestTime * mLen;
                                             costtime34 += PourCost[product][j].TRestTime;// * mLen;
                                         }
-                                        else
-                                        {
-                                            QSet<QString> lastmaterielset;//上一工艺所需物料
-                                            for(int k = 0; k < lastStepset[LastPourOrder].length();k++)
+                                    }
+                                }
+                                else
+                                {
+                                    QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                                    for(int j = 0; j < PourCost[LastPourOrder].length();j++)
+                                    {
+                                        lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
+                                    }
+                                    for(int j = 0; j < PourCost[product].length();j++)
+                                    {
+                                        if(PourCost[product][j].ProcessType == 2)
+                                        {//2:灌装
+                                            if(!lastStepset.contains(PourCost[product][j].ProcessStep))
                                             {
-                                                lastmaterielset << lastStepset[LastPourOrder][k];
-                                            }
-                                            for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
-                                            {
-                                                int mLen = 0;
-                                                if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
-                                                {
-                                                    mLen ++;
-                                                }
+                                                int mLen = PourCost[product][j].Materiel.length();
                                                 costtime34 += PourCost[product][j].MRestTime * mLen;
                                                 costtime34 += PourCost[product][j].TRestTime;// * mLen;
                                             }
+                                            else
+                                            {
+                                                QSet<QString> lastmaterielset;//上一工艺所需物料
+                                                for(int k = 0; k < lastStepset[LastPourOrder].length();k++)
+                                                {
+                                                    lastmaterielset << lastStepset[LastPourOrder][k];
+                                                }
+                                                for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
+                                                {
+                                                    int mLen = 0;
+                                                    if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
+                                                    {
+                                                        mLen ++;
+                                                    }
+                                                    costtime34 += PourCost[product][j].MRestTime * mLen;
+                                                    if(mLen != 0)
+                                                    {
+                                                        costtime34 += PourCost[product][j].TRestTime;
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
+                                    lastStepset.clear();
                                 }
-                                lastStepset.clear();
+
+                                //Index++;
+                                Index34++;
+                                //记录 order4
+                                //
+                                QString nstr1 = QString("%1").arg(orderPourStart + costtime34 * 60);
+                                QString nstr2 = QString("%1").arg(costtime34);
+                                QString nstr3 = QString("%1").arg(orderPourStart + costtime34 * 60 + new_pournum * pourtime);
+                                //
+                                OutputOrder neworder;
+                                neworder.Index = QString("%1").arg(Index34);
+                                neworder.OrderType = order34[product].OrderType;
+                                QList<QString> productindex;
+                                productindex.append(product);
+                                neworder.ProductIndex = productindex;
+                                QList<int> productnum;
+                                productnum.append(new_pournum);
+                                neworder.ProductNum = productnum;
+                                QList<QString> workorder;
+                                neworder.WorkOrder = workorder;
+                                neworder.BagStartTime = "";
+                                neworder.PourStartTime = nstr1;
+                                neworder.BagRestTime = "";
+                                neworder.PourRestTime = nstr2;
+                                neworder.EndTime = nstr3;
+                                neworder.DependIndex = "";
+                                //outputorder.append(neworder);
+                                tempOutput34.append(neworder);
+                                orderPourStart += new_pournum * pourtime + costtime34 * 60;
+                                LastPourOrder = product;
+
+                                StockMap[product] += new_pournum;
+                                order34[product].ProductNum -= new_pournum;
                             }
-
-                            Index++;
-                            //记录 order4
-                            //
-                            QString nstr1 = QString("%1").arg(orderPourStart + costtime34 * 60);
-                            QString nstr2 = QString("%1").arg(costtime34);
-                            QString nstr3 = QString("%1").arg(orderPourStart + costtime34 * 60 + new_pournum * pourtime);
-                            //
-                            OutputOrder neworder;
-                            neworder.Index = QString("%1").arg(Index);
-                            neworder.OrderType = order34[product].OrderType;
-                            QList<QString> productindex;
-                            productindex.append(product);
-                            neworder.ProductIndex = productindex;
-                            QList<int> productnum;
-                            productnum.append(new_pournum);
-                            neworder.ProductNum = productnum;
-                            QList<QString> workorder;
-                            neworder.WorkOrder = workorder;
-                            neworder.BagStartTime = "";
-                            neworder.PourStartTime = nstr1;
-                            neworder.BagRestTime = "";
-                            neworder.PourRestTime = nstr2;
-                            neworder.EndTime = nstr3;
-                            neworder.DependIndex = "";
-                            outputorder.append(neworder);
-                            orderPourStart += new_pournum * pourtime + costtime34 * 60;
-                            LastPourOrder = product;
-
-                            StockMap[product] += new_pournum;
-                            order34[product].ProductNum -= new_pournum;
                         }
                         else
                         {
@@ -1277,18 +1231,91 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     }
                     //printf("order:%s\n",p.toLatin1().data());
                     //printf("num:%d\n",max_ordernum);
-                    Index++;
+
+
+                    //优先放入灌装单
+                    QString frontp = order56[max_i].DependProductIndex;
+                    if(max_pournum > 0)
+                    {
+                        StockMap[frontp] = StockMap[frontp] - max_ordernum + max_pournum;
+                        //Index++;
+                        Index34++;
+                        //记录 order4
+                        //
+                        QString nstr1 = QString("%1").arg(orderPourStart);// + max_cost34 * 60);
+                        QString nstr2 = QString("%1").arg(max_cost34);
+                        QString nstr3 = QString("%1").arg(orderPourStart + max_cost34 * 60 + max_pournum * pourtime);
+                        //
+                        QString tstr1 = QString("%1").arg(orderBagStart + max_waittime);// + max_cost56 * 60);
+                        //
+                        OutputOrder neworder;
+                        neworder.Index = QString("%1").arg(Index34);
+                        neworder.OrderType = order34[frontp].OrderType;
+                        QList<QString> productindex;
+                        productindex.append(frontp);
+                        neworder.ProductIndex = productindex;
+                        QList<int> productnum;
+                        productnum.append(max_pournum);
+                        neworder.ProductNum = productnum;
+                        QList<QString> workorder;
+                        neworder.WorkOrder = workorder;
+                        neworder.BagStartTime = "";
+                        neworder.PourStartTime = nstr1;
+                        neworder.BagRestTime = "";
+                        neworder.PourRestTime = nstr2;
+                        neworder.EndTime = nstr3;
+                        neworder.DependIndex = QString("%1").arg(Index56 + 1);
+
+
+//                        //合并连续的相同制令单
+//                        bool act_equal = false;
+//                        if(outputorder.length() > 0)
+//                        {
+//                            if(outputorder.last().OrderType == neworder.OrderType)
+//                            {
+//                                if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+//                                {
+//                                    act_equal = true;
+//                                    int newlen = neworder.ProductIndex.length();
+//                                    for(int xlen = 0;xlen < newlen;xlen++)
+//                                    {
+//                                        if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+//                                        {
+//                                            act_equal = false;
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                        }
+//                        if(!act_equal)
+//                        {
+//                            outputorder.append(neworder);
+//                        }
+//                        else
+//                        {
+//                            int newlen = outputorder.last().ProductNum.length();
+//                            for(int xlen = 0;xlen < newlen;xlen++)
+//                            {
+//                                outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+//                            }
+//                            outputorder.last().EndTime = neworder.EndTime;
+//                        }
+                        tempOutput34.append(neworder);
+                    }
+
+                    Index56++;
+                    //Index++;
                     //记录 order56 2
                     //
                     //int sec1 = orderPourStart + max_waittime + max_cost34 * 60;
                     //int sec2 = max_cost34 * 60;
                     //int sec3 = orderPourStart + max_waittime + max_cost34 * 60 + max_pournum * pourtime;
-                    QString tstr1 = QString("%1").arg(orderBagStart + max_waittime + max_cost56 * 60);
+                    QString tstr1 = QString("%1").arg(orderBagStart + max_waittime);// + max_cost56 * 60);
                     QString tstr2 = QString("%1").arg(max_cost56);// * 60);
                     QString tstr3 = QString("%1").arg(orderBagStart + max_waittime + max_cost56 * 60 + max_ordernum * bagtime);
                     //
                     OutputOrder neworder;
-                    neworder.Index = QString("%1").arg(Index);
+                    neworder.Index = QString("%1").arg(Index56);
                     neworder.OrderType = order56[max_i].OrderType;
                     QList<QString> productindex;
                     productindex.append(p);
@@ -1306,116 +1333,330 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     neworder.DependIndex = "";
 
 
-                    //合并连续的相同制令单
-                    bool act_equal = false;
-                    if(outputorder.length() > 0)
-                    {
-                        if(outputorder.last().OrderType == neworder.OrderType)
-                        {
-                            if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
-                            {
-                                act_equal = true;
-                                int newlen = neworder.ProductIndex.length();
-                                for(int xlen = 0;xlen < newlen;xlen++)
-                                {
-                                    if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
-                                    {
-                                        act_equal = false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if(!act_equal)
-                    {
-                        outputorder.append(neworder);
-                    }
-                    else
-                    {
-                        int newlen = outputorder.last().ProductNum.length();
-                        for(int xlen = 0;xlen < newlen;xlen++)
-                        {
-                            outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
-                        }
-                        outputorder.last().EndTime = neworder.EndTime;
-                    }
+//                    //合并连续的相同制令单
+//                    bool act_equal = false;
+//                    if(outputorder.length() > 0)
+//                    {
+//                        if(outputorder.last().OrderType == neworder.OrderType)
+//                        {
+//                            if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+//                            {
+//                                act_equal = true;
+//                                int newlen = neworder.ProductIndex.length();
+//                                for(int xlen = 0;xlen < newlen;xlen++)
+//                                {
+//                                    if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+//                                    {
+//                                        act_equal = false;
+//                                    }
+//                                }
+//                            }
+//                        }
+//                    }
+//                    if(!act_equal)
+//                    {
+//                        outputorder.append(neworder);
+//                    }
+//                    else
+//                    {
+//                        int newlen = outputorder.last().ProductNum.length();
+//                        for(int xlen = 0;xlen < newlen;xlen++)
+//                        {
+//                            outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+//                        }
+//                        outputorder.last().EndTime = neworder.EndTime;
+//                    }
+                    tempOutput56.append(neworder);
 
 
-                    //
-                    QString frontp = order56[max_i].DependProductIndex;
-                    if(max_pournum > 0)
-                    {
-                        StockMap[frontp] = StockMap[frontp] - max_ordernum + max_pournum;
-                        Index++;
-                        //记录 order4
-                        //
-                        QString nstr1 = QString("%1").arg(orderPourStart + max_cost34 * 60);
-                        QString nstr2 = QString("%1").arg(max_cost34);
-                        QString nstr3 = QString("%1").arg(orderPourStart + max_cost34 * 60 + max_pournum * pourtime);
-                        //
-                        OutputOrder neworder;
-                        neworder.Index = QString("%1").arg(Index);
-                        neworder.OrderType = order34[frontp].OrderType;
-                        QList<QString> productindex;
-                        productindex.append(frontp);
-                        neworder.ProductIndex = productindex;
-                        QList<int> productnum;
-                        productnum.append(max_pournum);
-                        neworder.ProductNum = productnum;
-                        QList<QString> workorder;
-                        neworder.WorkOrder = workorder;
-                        neworder.BagStartTime = "";
-                        neworder.PourStartTime = nstr1;
-                        neworder.BagRestTime = "";
-                        neworder.PourRestTime = nstr2;
-                        neworder.EndTime = nstr3;
-                        neworder.DependIndex = QString("%1").arg(Index - 1);
-
-
-                        //合并连续的相同制令单
-                        bool act_equal = false;
-                        if(outputorder.length() > 0)
-                        {
-                            if(outputorder.last().OrderType == neworder.OrderType)
-                            {
-                                if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
-                                {
-                                    act_equal = true;
-                                    int newlen = neworder.ProductIndex.length();
-                                    for(int xlen = 0;xlen < newlen;xlen++)
-                                    {
-                                        if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
-                                        {
-                                            act_equal = false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if(!act_equal)
-                        {
-                            outputorder.append(neworder);
-                        }
-                        else
-                        {
-                            int newlen = outputorder.last().ProductNum.length();
-                            for(int xlen = 0;xlen < newlen;xlen++)
-                            {
-                                outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
-                            }
-                            outputorder.last().EndTime = neworder.EndTime;
-                        }
-                    }
                     order56[max_i].ProductNum[p] -= max_ordernum;
-                    order34[frontp].ProductNum -= max_pournum;
                     LastBagOrder = p;
                     if(max_pournum > 0)
                     {
+                        order34[frontp].ProductNum -= max_pournum;
                         orderPourStart += max_pournum * pourtime + max_cost34 * 60;
                         LastPourOrder = frontp;
                     }
                     orderBagStart += max_ordernum * bagtime + max_cost56 * 60 + max_waittime;
                 }
+            }
+            if((!First56 || sum56 == 0) && (Index34 > 0 || Index56 > 0))
+            {
+                //新增：灌装重排优化
+                const int permlen = tempOutput34.count();
+                if(permlen > 0)
+                {
+                    bool permFixed[permlen];
+                    QList<int> originlist;//优化前
+                    for(int i = 0;i < permlen;i++)
+                    {
+                        permFixed[i] = false;
+                        originlist.append(i);
+                    }
+                    QList<int> permlist;//优化后排序
+                    int TempPourRest[permlen][permlen];
+                    //计算换型换料时长
+                    for(int i = 0;i < permlen;i++)
+                    {
+                        for(int j = 0;j < permlen;j++)
+                        {
+                            if(i == j)
+                            {
+                                int costtime34 = 0;
+                                QString product = tempOutput34[j].ProductIndex[0];
+                                if(FixedLastPourOrder == "" || !PourCost.contains(FixedLastPourOrder))
+                                {
+                                    for(int n = 0; n < PourCost[product].length();n++)
+                                    {
+                                        if(PourCost[product][n].ProcessType == 2)
+                                        {//2:灌装
+                                            int mLen = PourCost[product][n].Materiel.length();
+                                            costtime34 += PourCost[product][n].MRestTime * mLen;
+                                            costtime34 += PourCost[product][n].TRestTime;// * mLen;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                                    for(int n = 0; n < PourCost[FixedLastPourOrder].length();n++)
+                                    {
+                                        lastStepset.insert(PourCost[FixedLastPourOrder][n].ProcessStep, PourCost[FixedLastPourOrder][n].Materiel);
+                                    }
+                                    for(int n = 0; n < PourCost[product].length();n++)
+                                    {
+                                        if(PourCost[product][n].ProcessType == 2)
+                                        {//2:灌装
+                                            if(!lastStepset.contains(PourCost[product][n].ProcessStep))
+                                            {
+                                                int mLen = PourCost[product][n].Materiel.length();
+                                                costtime34 += PourCost[product][n].MRestTime * mLen;
+                                                costtime34 += PourCost[product][n].TRestTime;// * mLen;
+                                            }
+                                            else
+                                            {
+                                                QSet<QString> lastmaterielset;//上一工艺所需物料
+                                                for(int k = 0; k < lastStepset[FixedLastPourOrder].length();k++)
+                                                {
+                                                    lastmaterielset << lastStepset[FixedLastPourOrder][k];
+                                                }
+                                                for(int k = 0; k < PourCost[product][n].Materiel.length();k++)
+                                                {
+                                                    int mLen = 0;
+                                                    if(!lastmaterielset.contains(PourCost[product][n].Materiel[k]))
+                                                    {
+                                                        mLen ++;
+                                                    }
+                                                    costtime34 += PourCost[product][n].MRestTime * mLen;
+                                                    if(mLen != 0)
+                                                    {
+                                                        costtime34 += PourCost[product][n].TRestTime;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    lastStepset.clear();
+                                }
+                                TempPourRest[i][j] = costtime34;
+                            }
+                            else
+                            {
+                                int costtime34 = 0;
+                                QString Lastproduct = tempOutput34[i].ProductIndex[0];
+                                QString product = tempOutput34[j].ProductIndex[0];
+                                QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                                for(int n = 0; n < PourCost[Lastproduct].length();n++)
+                                {
+                                    lastStepset.insert(PourCost[Lastproduct][n].ProcessStep, PourCost[Lastproduct][n].Materiel);
+                                }
+                                for(int n = 0; n < PourCost[product].length();n++)
+                                {
+                                    if(PourCost[product][n].ProcessType == 2)
+                                    {//2:灌装
+                                        if(!lastStepset.contains(PourCost[product][n].ProcessStep))
+                                        {
+                                            int mLen = PourCost[product][n].Materiel.length();
+                                            costtime34 += PourCost[product][n].MRestTime * mLen;
+                                            costtime34 += PourCost[product][n].TRestTime;// * mLen;
+                                        }
+                                        else
+                                        {
+                                            QSet<QString> lastmaterielset;//上一工艺所需物料
+                                            for(int k = 0; k < lastStepset[PourCost[product][n].ProcessStep].length();k++)
+                                            {
+                                                lastmaterielset << lastStepset[PourCost[product][n].ProcessStep][k];
+                                            }
+                                            int mLen = 0;
+                                            for(int k = 0; k < PourCost[product][n].Materiel.length();k++)
+                                            {
+                                                if(!lastmaterielset.contains(PourCost[product][n].Materiel[k]))
+                                                {
+                                                    mLen ++;
+                                                }
+                                            }
+                                            costtime34 += PourCost[product][n].MRestTime * mLen;
+                                            if(mLen != 0)
+                                            {
+                                                costtime34 += PourCost[product][n].TRestTime;
+                                            }
+                                        }
+                                    }
+                                }
+                                lastStepset.clear();
+                                TempPourRest[i][j] = costtime34;
+                            }
+                        }
+                    }
+                    QList<TimeSpan> originTimelist;//每个灌装制令单的耗时
+                    QList<TimeSpan> timespanlist;//包装前置限制时间分段
+                    int starttime = tempOutput34[0].PourStartTime.toInt();
+                    foreach(OutputOrder tempoutput,tempOutput34)
+                    {
+                        TimeSpan newSpan;
+                        newSpan.rest = tempoutput.PourRestTime.toInt() * 60;
+                        newSpan.end = tempoutput.EndTime.toInt() - tempoutput.PourStartTime.toInt();
+                        originTimelist.append(newSpan);
+                        if(tempoutput.DependIndex != "")
+                        {
+                            int endtime = tempOutput56[tempoutput.DependIndex.toInt() - 1].BagStartTime.toInt();
+                            TimeSpan newtimespan;
+                            newtimespan.start = starttime;
+                            newtimespan.end = endtime;
+                            timespanlist.append(newtimespan);
+                            starttime = endtime;
+                        }
+                    }
+                    TimeSpan newtimespan;
+                    newtimespan.start = starttime;
+                    newtimespan.end = tempOutput56.last().BagStartTime.toInt();
+                    timespanlist.append(newtimespan);//时间分段完毕
+                    int spanlen = timespanlist.count();
+                    for(int i = 0;i < spanlen;i++)
+                    {
+                        int timing = timespanlist[i].end - timespanlist[i].start;//当前分段剩余时间
+                        //优先排有对应前置限制的灌装制令单
+                        for(int j = 0;j < permlen;j++)
+                        {
+                            if(tempOutput34[j].DependIndex != "" && !permFixed[j])
+                            {
+                                int endtime = tempOutput56[tempOutput34[j].DependIndex.toInt() - 1].BagStartTime.toInt();
+                                if(endtime <= timespanlist[i].end)
+                                {//固定下来，重新计算时间
+                                    if(permlist.count() > 0)
+                                    {
+                                        timing -= TempPourRest[permlist.last()][j];
+                                    }
+                                    else
+                                    {
+                                        timing -= TempPourRest[j][j];
+                                    }
+                                    timing -= (originTimelist[j].end - originTimelist[j].rest);
+                                    permlist.append(j);
+                                    permFixed[j] = true;
+                                }
+                            }
+                        }
+                        //逐步加入
+                        while(timing >= 0)
+                        {
+                            int maxj = -1;
+                            double max_rate = 0.0;
+                            for(int j = 0;j < permlen;j++)
+                            {
+                                if(!permFixed[j])
+                                {
+                                    //寻找最小换型换料时长
+                                    int temprest = 0;
+                                    if(permlist.count() > 0)
+                                    {
+                                        temprest = TempPourRest[permlist.last()][j];
+                                    }
+                                    else
+                                    {
+                                        temprest = TempPourRest[j][j];
+                                    }
+                                    int tempwork = originTimelist[j].end - originTimelist[j].rest;
+                                    double temp_rate = static_cast<double>(static_cast<double>(tempwork) / (tempwork + temprest));
+                                    if(temp_rate > max_rate)
+                                    {
+                                        if(timing > originTimelist[j].end)
+                                        {
+                                            maxj = j;
+                                            max_rate = temp_rate;
+                                        }
+                                    }
+                                }
+                            }
+                            if(maxj < 0)
+                            {
+                                break;
+                            }
+                            else
+                            {//固定下来，重新计算时间
+                                if(permlist.count() > 0)
+                                {
+                                    timing -= TempPourRest[permlist.last()][maxj];
+                                }
+                                else
+                                {
+                                    timing -= TempPourRest[maxj][maxj];
+                                }
+                                timing -= (originTimelist[maxj].end - originTimelist[maxj].rest);
+                                permlist.append(maxj);
+                                permFixed[maxj] = true;
+
+                            }
+                        }
+                        //更新下一分段时间
+                        if(i < spanlen - 1)
+                        {
+                            timespanlist[i + 1].start -= timing;
+                        }
+                    }
+                    //固定位置
+                    for(int i = 0;i < permlen;i++)
+                    {
+                        OutputOrder tempoutput(tempOutput34[permlist[i]]);
+                        int new_pournum = tempOutput34[permlist[i]].ProductNum.first();
+                        if(i == 0)
+                        {
+                            QString nstr1 = QString("%1").arg(FixedorderPourStart + TempPourRest[permlist[i]][permlist[i]] * 60);
+                            QString nstr2 = QString("%1").arg(TempPourRest[permlist[i]][permlist[i]]);
+                            QString nstr3 = QString("%1").arg(FixedorderPourStart + TempPourRest[permlist[i]][permlist[i]] * 60 + new_pournum * pourtime);
+                            tempoutput.PourStartTime = nstr1;
+                            tempoutput.PourRestTime = nstr2;
+                            tempoutput.EndTime = nstr3;
+                            FixedorderPourStart += new_pournum * pourtime + TempPourRest[permlist[i]][permlist[i]] * 60;
+                            FixedLastPourOrder = tempOutput34[permlist[i]].ProductIndex.first();
+                        }
+                        else
+                        {
+                            QString nstr1 = QString("%1").arg(FixedorderPourStart + TempPourRest[permlist[i - 1]][permlist[i]] * 60);
+                            QString nstr2 = QString("%1").arg(TempPourRest[permlist[i - 1]][permlist[i]]);
+                            QString nstr3 = QString("%1").arg(FixedorderPourStart + TempPourRest[permlist[i - 1]][permlist[i]] * 60 + new_pournum * pourtime);
+                            tempoutput.PourStartTime = nstr1;
+                            tempoutput.PourRestTime = nstr2;
+                            tempoutput.EndTime = nstr3;
+                            FixedorderPourStart += new_pournum * pourtime + TempPourRest[i - 1][i] * 60;
+                            FixedLastPourOrder = tempOutput34[permlist[i]].ProductIndex.first();
+                        }
+                        AllIndex++;
+                        tempoutput.Index = QString("%1").arg(AllIndex);
+                        outputorder.append(tempoutput);
+                    }
+                    LastPourOrder = FixedLastPourOrder;
+                    tempOutput34.clear();
+                    Index34 = 0;
+                }
+                foreach(OutputOrder tempoutput,tempOutput56)
+                {
+                    AllIndex++;
+                    tempoutput.Index = QString("%1").arg(AllIndex);
+                    outputorder.append(tempoutput);
+                }
+                tempOutput56.clear();
+                Index56 = 0;
             }
             if (((sum7 != 0) && !First56) || sum56 == 0)
             {
@@ -1565,19 +1806,22 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                             else
                                             {
                                                 QSet<QString> lastmaterielset;//上一工艺所需物料
-                                                for(int k = 0; k < lastStepset[localLastBagOrder].length();k++)
+                                                for(int k = 0; k < lastStepset[BagCost[product][j].ProcessStep].length();k++)
                                                 {
-                                                    lastmaterielset << lastStepset[localLastBagOrder][k];
+                                                    lastmaterielset << lastStepset[BagCost[product][j].ProcessStep][k];
                                                 }
+                                                int mLen = 0;
                                                 for(int k = 0; k < BagCost[product][j].Materiel.length();k++)
                                                 {
-                                                    int mLen = 0;
                                                     if(!lastmaterielset.contains(BagCost[product][j].Materiel[k]))
                                                     {
                                                         mLen ++;
                                                     }
-                                                    costtime56 += BagCost[product][j].MRestTime * mLen;
-                                                    costtime56 += BagCost[product][j].TRestTime;// * mLen;
+                                                }
+                                                costtime56 += BagCost[product][j].MRestTime * mLen;
+                                                if(mLen != 0)
+                                                {
+                                                    costtime56 += BagCost[product][j].TRestTime;
                                                 }
                                             }
                                         }
@@ -1604,8 +1848,8 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                     }
                                     for(int j = 0; j < PourCost[product].length();j++)
                                     {
-                                        if(PourCost[product][j].ProcessType == 3)
-                                        {//3:包装
+                                        if(PourCost[product][j].ProcessType == 2)
+                                        {//2:灌装
                                             if(!lastStepset.contains(PourCost[product][j].ProcessStep))
                                             {
                                                 int mLen = PourCost[product][j].Materiel.length();
@@ -1615,19 +1859,22 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                             else
                                             {
                                                 QSet<QString> lastmaterielset;//上一工艺所需物料
-                                                for(int k = 0; k < lastStepset[localLastPourOrder].length();k++)
+                                                for(int k = 0; k < lastStepset[PourCost[product][j].ProcessStep].length();k++)
                                                 {
-                                                    lastmaterielset << lastStepset[localLastPourOrder][k];
+                                                    lastmaterielset << lastStepset[PourCost[product][j].ProcessStep][k];
                                                 }
+                                                int mLen = 0;
                                                 for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
                                                 {
-                                                    int mLen = 0;
                                                     if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
                                                     {
                                                         mLen ++;
                                                     }
-                                                    costtime7 += PourCost[product][j].MRestTime * mLen;
-                                                    costtime7 += PourCost[product][j].TRestTime;// * mLen;
+                                                }
+                                                costtime7 += PourCost[product][j].MRestTime * mLen;
+                                                if(mLen != 0)
+                                                {
+                                                    costtime7 += PourCost[product][j].TRestTime;
                                                 }
                                             }
                                         }
@@ -1664,7 +1911,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     //可出库数量为0
                     NoNum++;
                     //计算剩余库存中可直接入库数量,进仓
-                    Not7Set = 1;
+                    //Not7Set = 1;
                     int permitnum = 0;
                     foreach(QString product,In_Product.keys())
                     {
@@ -1672,6 +1919,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     }
                     if(sum7 < allsetnum - permitnum)
                     {
+                        //灌包进仓
                         for(int i = 0;i < order7.length();i++)
                         {
                             int tempsum = 0;
@@ -1725,19 +1973,22 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                                 else
                                                 {
                                                     QSet<QString> lastmaterielset;//上一工艺所需物料
-                                                    for(int k = 0; k < lastStepset[localLastBagOrder].length();k++)
+                                                    for(int k = 0; k < lastStepset[BagCost[product][j].ProcessStep].length();k++)
                                                     {
-                                                        lastmaterielset << lastStepset[localLastBagOrder][k];
+                                                        lastmaterielset << lastStepset[BagCost[product][j].ProcessStep][k];
                                                     }
+                                                    int mLen = 0;
                                                     for(int k = 0; k < BagCost[product][j].Materiel.length();k++)
                                                     {
-                                                        int mLen = 0;
                                                         if(!lastmaterielset.contains(BagCost[product][j].Materiel[k]))
                                                         {
                                                             mLen ++;
                                                         }
-                                                        costtime56 += BagCost[product][j].MRestTime * mLen;
-                                                        costtime56 += BagCost[product][j].TRestTime;// * mLen;
+                                                    }
+                                                    costtime56 += BagCost[product][j].MRestTime * mLen;
+                                                    if(mLen != 0)
+                                                    {
+                                                        costtime56 += BagCost[product][j].TRestTime;
                                                     }
                                                 }
                                             }
@@ -1775,19 +2026,22 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                                 else
                                                 {
                                                     QSet<QString> lastmaterielset;//上一工艺所需物料
-                                                    for(int k = 0; k < lastStepset[localLastPourOrder].length();k++)
+                                                    for(int k = 0; k < lastStepset[PourCost[product][j].ProcessStep].length();k++)
                                                     {
-                                                        lastmaterielset << lastStepset[localLastPourOrder][k];
+                                                        lastmaterielset << lastStepset[PourCost[product][j].ProcessStep][k];
                                                     }
+                                                    int mLen = 0;
                                                     for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
                                                     {
-                                                        int mLen = 0;
                                                         if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
                                                         {
                                                             mLen ++;
                                                         }
-                                                        costtime7 += PourCost[product][j].MRestTime * mLen;
-                                                        costtime7 += PourCost[product][j].TRestTime;// * mLen;
+                                                    }
+                                                    costtime7 += PourCost[product][j].MRestTime * mLen;
+                                                    if(mLen != 0)
+                                                    {
+                                                        costtime7 += PourCost[product][j].TRestTime;
                                                     }
                                                 }
                                             }
@@ -1867,7 +2121,8 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                                     }
                                 }
                             }
-                            Index++;
+                            //Index++;
+                            AllIndex++;
                             int tempsum2 = 0;
                             foreach(int tempnum,order7[i].ProductNum.values())
                             {
@@ -1889,7 +2144,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                             QString tstr5 = QString("%1").arg(tempbagtimealpha);
                             //
                             OutputOrder neworder;
-                            neworder.Index = QString("%1").arg(Index);
+                            neworder.Index = QString("%1").arg(AllIndex);
                             neworder.OrderType = order7[i].OrderType;
                             QList<QString> productindex;
                             foreach(QString product,order7[i].ProductNum.keys())
@@ -1953,6 +2208,10 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                             {
                                 order7[i].ProductNum[product] = 0;
                             }
+                            QString p = order7[i].ProductNum.firstKey();
+                            LastBagOrder = p;
+                            LastPourOrder = p;
+                            FixedLastPourOrder = LastPourOrder;
                         }
                     }
                     else
@@ -1962,8 +2221,9 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                 }
                 else
                 {//否则,进仓
+                    //灌包进仓
                     NoNum = 0;
-                    Not7Set = 0;
+                    //Not7Set = 0;
                     int test_sum = 0;
                     int actual_sum = 0;
                     foreach(QString product, max_count.keys())
@@ -2094,7 +2354,8 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                             }
                         }
                     }
-                    Index++;
+                    //Index++;
+                    AllIndex++;
                     //记录 order7
                     int next_num = 0;
                     foreach(QString product, next_count.keys())
@@ -2121,7 +2382,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     QString tstr5 = QString("%1").arg(tempbagtimealpha);
                     //
                     OutputOrder neworder;
-                    neworder.Index = QString("%1").arg(Index);
+                    neworder.Index = QString("%1").arg(AllIndex);
                     neworder.OrderType = order7[max_i].OrderType;
                     QList<QString> productindex;
                     QList<int> productnum;
@@ -2187,6 +2448,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                     QString p = order7[max_i].ProductNum.firstKey();
                     LastBagOrder = p;
                     LastPourOrder = p;
+                    FixedLastPourOrder = LastPourOrder;
                 }
                 max_count.clear();
             }
@@ -2205,6 +2467,10 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
                 SalesIndexs.clear();
                 return 9;
             }
+            if ((sum56 == 0) && (sum7 == 0))
+            {
+                break;
+            }
         }
         //printf("finished Order\n");
         //printf("Sales len%d\n",SalesIndexs.keys().length());
@@ -2214,133 +2480,159 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
     //        {
     //            printf("product:%s , work:%s\n",product.toLatin1().data(),salesindex.toLatin1().data());
     //        }
-    //    }
-        foreach(QString product, order34.keys())
+    //    }    
+        while(true)
         {//剩余制令单34排产
-            int new_pournum = order34[product].ProductNum;
-            if(new_pournum == 0)
+            int sum34 = 0;
+            foreach(QString product, order34.keys())
             {
-                continue;
+                sum34 += order34[product].ProductNum;
             }
-
-            int costtime34 = 0;
-            if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
+            if(sum34 == 0)
             {
-                for(int j = 0; j < PourCost[product].length();j++)
-                {
-                    if(PourCost[product][j].ProcessType == 2)
-                    {//2:灌装
-                        int mLen = PourCost[product][j].Materiel.length();
-                        costtime34 += PourCost[product][j].MRestTime * mLen;
-                        costtime34 += PourCost[product][j].TRestTime;// * mLen;
-                    }
-                }
+                break;
             }
-            else
+            QString max_product = "";
+            double max_rate = 0.0;
+            int max_costtime34 = 0;
+            foreach(QString product, order34.keys())
             {
-                QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
-                for(int j = 0; j < PourCost[LastPourOrder].length();j++)
+                int new_pournum = order34[product].ProductNum;
+                if(new_pournum == 0)
                 {
-                    lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
+                    continue;
                 }
-                for(int j = 0; j < PourCost[product].length();j++)
+                int costtime34 = 0;
+                if(LastPourOrder == "" || !PourCost.contains(LastPourOrder))
                 {
-                    if(PourCost[product][j].ProcessType == 3)
-                    {//3:包装
-                        if(!lastStepset.contains(PourCost[product][j].ProcessStep))
-                        {
+                    for(int j = 0; j < PourCost[product].length();j++)
+                    {
+                        if(PourCost[product][j].ProcessType == 2)
+                        {//2:灌装
                             int mLen = PourCost[product][j].Materiel.length();
                             costtime34 += PourCost[product][j].MRestTime * mLen;
                             costtime34 += PourCost[product][j].TRestTime;// * mLen;
                         }
-                        else
-                        {
-                            QSet<QString> lastmaterielset;//上一工艺所需物料
-                            for(int k = 0; k < lastStepset[LastPourOrder].length();k++)
+                    }
+                }
+                else
+                {
+                    QMap<QString,QList<QString>> lastStepset;//上一制令单工艺路线
+                    for(int j = 0; j < PourCost[LastPourOrder].length();j++)
+                    {
+                        lastStepset.insert(PourCost[LastPourOrder][j].ProcessStep, PourCost[LastPourOrder][j].Materiel);
+                    }
+                    for(int j = 0; j < PourCost[product].length();j++)
+                    {
+                        if(PourCost[product][j].ProcessType == 2)
+                        {//2:灌装
+                            if(!lastStepset.contains(PourCost[product][j].ProcessStep))
                             {
-                                lastmaterielset << lastStepset[LastPourOrder][k];
-                            }
-                            for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
-                            {
-                                int mLen = 0;
-                                if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
-                                {
-                                    mLen ++;
-                                }
+                                int mLen = PourCost[product][j].Materiel.length();
                                 costtime34 += PourCost[product][j].MRestTime * mLen;
                                 costtime34 += PourCost[product][j].TRestTime;// * mLen;
                             }
+                            else
+                            {
+                                QSet<QString> lastmaterielset;//上一工艺所需物料
+                                for(int k = 0; k < lastStepset[PourCost[product][j].ProcessStep].length();k++)
+                                {
+                                    lastmaterielset << lastStepset[PourCost[product][j].ProcessStep][k];
+                                }
+                                int mLen = 0;
+                                for(int k = 0; k < PourCost[product][j].Materiel.length();k++)
+                                {
+                                    if(!lastmaterielset.contains(PourCost[product][j].Materiel[k]))
+                                    {
+                                        mLen ++;
+                                    }
+                                }
+                                costtime34 += PourCost[product][j].MRestTime * mLen;
+                                if(mLen != 0)
+                                {
+                                    costtime34 += PourCost[product][j].TRestTime;
+                                }
+                            }
                         }
                     }
+                    lastStepset.clear();
                 }
-                lastStepset.clear();
-            }
-
-            Index++;
-            //记录 order4
-            //
-            QString nstr1 = QString("%1").arg(orderPourStart + costtime34 * 60);
-            QString nstr2 = QString("%1").arg(costtime34);
-            QString nstr3 = QString("%1").arg(orderPourStart + costtime34 * 60 + new_pournum * pourtime);
-            //
-            OutputOrder neworder;
-            neworder.Index = QString("%1").arg(Index);
-            neworder.OrderType = order34[product].OrderType;
-            QList<QString> productindex;
-            productindex.append(product);
-            neworder.ProductIndex = productindex;
-            QList<int> productnum;
-            productnum.append(new_pournum);
-            neworder.ProductNum = productnum;
-            QList<QString> workorder;
-            neworder.WorkOrder = workorder;
-            neworder.BagStartTime = "";
-            neworder.PourStartTime = nstr1;
-            neworder.BagRestTime = "";
-            neworder.PourRestTime = nstr2;
-            neworder.EndTime = nstr3;
-            neworder.DependIndex = "";
-            //outputorder.append(neworder);
-
-            //合并连续的相同制令单
-            bool act_equal = false;
-            if(outputorder.length() > 0)
-            {
-                if(outputorder.last().OrderType == neworder.OrderType)
+                double cost_rate = static_cast<double>(static_cast<double>(new_pournum * pourtime) / (costtime34 * 60 + new_pournum * pourtime));
+                if(cost_rate > max_rate)
                 {
-                    if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
+                    max_product = product;
+                    max_rate = cost_rate;
+                    max_costtime34 = costtime34;
+                }
+            }
+            if(max_product != "")
+            {
+                int new_pournum = order34[max_product].ProductNum;
+                AllIndex++;
+                //记录 order4
+                //
+                QString nstr1 = QString("%1").arg(orderPourStart);// + costtime34 * 60);
+                QString nstr2 = QString("%1").arg(max_costtime34);
+                QString nstr3 = QString("%1").arg(orderPourStart + max_costtime34 * 60 + new_pournum * pourtime);
+                //
+                OutputOrder neworder;
+                neworder.Index = QString("%1").arg(AllIndex);
+                neworder.OrderType = order34[max_product].OrderType;
+                QList<QString> productindex;
+                productindex.append(max_product);
+                neworder.ProductIndex = productindex;
+                QList<int> productnum;
+                productnum.append(new_pournum);
+                neworder.ProductNum = productnum;
+                QList<QString> workorder;
+                neworder.WorkOrder = workorder;
+                neworder.BagStartTime = "";
+                neworder.PourStartTime = nstr1;
+                neworder.BagRestTime = "";
+                neworder.PourRestTime = nstr2;
+                neworder.EndTime = nstr3;
+                neworder.DependIndex = "";
+
+                //合并连续的相同制令单
+                bool act_equal = false;
+                if(outputorder.length() > 0)
+                {
+                    if(outputorder.last().OrderType == neworder.OrderType)
                     {
-                        act_equal = true;
-                        int newlen = neworder.ProductIndex.length();
-                        for(int xlen = 0;xlen < newlen;xlen++)
+                        if(outputorder.last().ProductIndex.length() == neworder.ProductIndex.length())
                         {
-                            if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                            act_equal = true;
+                            int newlen = neworder.ProductIndex.length();
+                            for(int xlen = 0;xlen < newlen;xlen++)
                             {
-                                act_equal = false;
+                                if(outputorder.last().ProductIndex[xlen] != neworder.ProductIndex[xlen])
+                                {
+                                    act_equal = false;
+                                }
                             }
                         }
                     }
                 }
-            }
-            if(!act_equal)
-            {
-                outputorder.append(neworder);
-            }
-            else
-            {
-                int newlen = outputorder.last().ProductNum.length();
-                for(int xlen = 0;xlen < newlen;xlen++)
+                if(!act_equal)
                 {
-                    outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                    outputorder.append(neworder);
                 }
-                outputorder.last().EndTime = neworder.EndTime;
+                else
+                {
+                    int newlen = outputorder.last().ProductNum.length();
+                    for(int xlen = 0;xlen < newlen;xlen++)
+                    {
+                        outputorder.last().ProductNum[xlen] += neworder.ProductNum[xlen];
+                    }
+                    outputorder.last().EndTime = neworder.EndTime;
+                }
+
+                orderPourStart += new_pournum * pourtime + max_costtime34 * 60;
+                LastPourOrder = max_product;
+
+                StockMap[max_product] += new_pournum;
+                order34[max_product].ProductNum -= new_pournum;
             }
-
-            orderPourStart += new_pournum * pourtime + costtime34 * 60;
-            LastPourOrder = product;
-
-            StockMap[product] += new_pournum;
-            order34[product].ProductNum -= new_pournum;
         }
         for(int i = 0;i < outputorder.count();i++)
         {
@@ -2373,6 +2665,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
         //printf("finished Sales");
         QJsonArray newArray;
         foreach(OutputOrder newoutorder, outputorder)
+        //foreach(OutputOrder newoutorder, tempOutput56)
         {
             QJsonObject newobject;
             newobject.insert("Index",newoutorder.Index);
@@ -2401,7 +2694,7 @@ int SortOrder(char * buffer1,char * buffer2,char * buffer3,char * buffer4)
             newobject.insert("PourRestTime",newoutorder.PourRestTime);
             newobject.insert("EndTime",newoutorder.EndTime);
             newobject.insert("DependIndex",newoutorder.DependIndex);
-
+            //newobject.insert("DependStartTime",tempOutput56[newoutorder.DependIndex.toInt() - 1].BagStartTime);
             //printf("%s",newoutorder.ProductIndex.front().toLatin1().data());
 
             newArray.append(newobject);

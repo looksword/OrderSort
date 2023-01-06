@@ -12,6 +12,13 @@
 #include <QtCore/QJsonValue>
 #include <exception>
 
+typedef struct timespan
+{
+    int start;
+    int rest;
+    int end;
+}TimeSpan;
+
 class SalesOrder
 {
 public:
@@ -116,6 +123,6 @@ public:
 //    static int SortOrder(char *,char *,char *,char *);
 //};
 
-extern "C" __attribute__((visibility("default"))) int SortOrder(char *,char *,char *,char *);
+extern "C" __declspec(dllexport) int SortOrder(char *,char *,char *,char *);
 
 #endif // ORDERSORT_H
